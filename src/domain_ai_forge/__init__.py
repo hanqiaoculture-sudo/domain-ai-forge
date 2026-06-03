@@ -15,14 +15,20 @@ from domain_ai_forge.core import (
     RunReport,
     Score,
     Scorer,
+    ToolCall,
+    ToolEnvironment,
+    ToolResult,
     contains_any,
     keyword_coverage,
+    metadata_environment_state_matches,
     metadata_keyword_coverage,
     metadata_no_forbidden_terms,
+    metadata_requires_agents,
+    metadata_requires_tool_call,
     min_length,
     no_forbidden_terms,
 )
-from domain_ai_forge.domain_pack import DomainPack, load_jsonl_cases
+from domain_ai_forge.domain_pack import DomainPack, load_domain_pack, load_jsonl_cases
 
 __all__ = [
     "Agent",
@@ -40,11 +46,18 @@ __all__ = [
     "RunReport",
     "Score",
     "Scorer",
+    "ToolCall",
+    "ToolEnvironment",
+    "ToolResult",
     "contains_any",
     "keyword_coverage",
+    "load_domain_pack",
     "load_jsonl_cases",
+    "metadata_environment_state_matches",
     "metadata_keyword_coverage",
     "metadata_no_forbidden_terms",
+    "metadata_requires_agents",
+    "metadata_requires_tool_call",
     "min_length",
     "no_forbidden_terms",
 ]

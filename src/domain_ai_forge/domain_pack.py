@@ -19,6 +19,7 @@ class DomainPack:
     task_type: str
     examples: tuple[Example, ...]
     metadata: Mapping[str, Any]
+    source_path: Path | None = None
 
     @property
     def tags(self) -> tuple[str, ...]:
@@ -56,6 +57,37 @@ def load_jsonl_cases(path: str | Path) -> tuple[Example, ...]:
     return tuple(examples)
 
 
+def load_domain_pack(path: str | Path) -> DomainPack:
+    """Load a domain pack from a directory or pack.json file."""
+
+    pack_path = Path(path)
+    manifest_path = pack_path / "pack.json" if pack_path.is_dir() else pack_path
+    with manifest_path.open("r", encoding="utf-8") as handle:
+        manifest = json.load(handle)
+
+    if not isinstance(manifest, Mapping):
+        raise ValueError("pack manifest must be a JSON object")
+
+    missing = [key for key in ("name", "version", "task_type", "cases") if key not in manifest]
+    if missing:
+        raise ValueError(f"Missing pack manifest fields: {', '.join(missing)}")
+
+    cases_path = manifest_path.parent / str(manifest["cases"])
+    metadata = {
+        key: value
+        for key, value in manifest.items()
+        if key not in {"name", "version", "task_type", "cases"}
+    }
+    return DomainPack(
+        name=str(manifest["name"]),
+        version=str(manifest["version"]),
+        task_type=str(manifest["task_type"]),
+        examples=load_jsonl_cases(cases_path),
+        metadata=metadata,
+        source_path=manifest_path.parent,
+    )
+
+
 def _example_from_mapping(payload: Mapping[str, Any], line_number: int) -> Example:
     missing = [key for key in ("id", "input") if key not in payload]
     if missing:
@@ -86,4 +118,3 @@ def _as_iterable(value: Any) -> Iterable[Any]:
     if isinstance(value, Iterable) and not isinstance(value, (str, bytes)):
         return value
     return (value,)
-

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from domain_ai_forge.adapters import RuleBasedModel
 from domain_ai_forge.core import (
     Agent,
@@ -9,47 +11,44 @@ from domain_ai_forge.core import (
     Harness,
     MultiAgentModel,
     OptimizationLoop,
+    ToolCall,
+    ToolEnvironment,
     contains_any,
+    metadata_environment_state_matches,
     metadata_keyword_coverage,
     metadata_no_forbidden_terms,
+    metadata_requires_agents,
+    metadata_requires_tool_call,
     min_length,
 )
+from domain_ai_forge.domain_pack import load_domain_pack
 
 
-def build_customer_support_demo() -> tuple[OptimizationLoop, dict[str, MultiAgentModel | RuleBasedModel], list[Example]]:
-    examples = [
-        Example(
-            id="refund-001",
-            input="A customer asks whether they can get a refund after buying yesterday.",
-            expected="refund eligibility next steps",
-            tags=("refund", "policy"),
-            metadata={
-                "pass_threshold": 0.75,
-                "keywords": ["refund", "eligibility", "policy", "next step"],
-                "forbidden_terms": ["guaranteed refund", "ignore policy"],
-            },
-        ),
-        Example(
-            id="shipping-001",
-            input="A customer says the package is late and wants a clear next step.",
-            expected="tracking escalation apology",
-            tags=("shipping", "support"),
-            metadata={
-                "pass_threshold": 0.75,
-                "keywords": ["tracking", "apology", "escalation", "next step"],
-                "forbidden_terms": ["guaranteed delivery", "ignore tracking"],
-            },
-        ),
-    ]
+ROOT = Path(__file__).resolve().parents[2]
+CUSTOMER_SUPPORT_PACK = ROOT / "examples" / "customer_support"
+
+
+def build_customer_support_demo() -> tuple[
+    OptimizationLoop,
+    dict[str, MultiAgentModel | RuleBasedModel],
+    list[Example],
+]:
+    domain_pack = load_domain_pack(CUSTOMER_SUPPORT_PACK)
+    examples = list(domain_pack.examples)
 
     harness = Harness(
         name="customer_support_harness",
         scorers=[
-            metadata_keyword_coverage(weight=0.45),
-            contains_any(["apology", "sorry", "I understand"], weight=0.15),
-            metadata_no_forbidden_terms(weight=0.20),
-            min_length(80, weight=0.20),
+            metadata_keyword_coverage(weight=0.30),
+            contains_any(["apology", "sorry", "I understand"], weight=0.10),
+            metadata_no_forbidden_terms(weight=0.15),
+            metadata_requires_agents(weight=0.15),
+            metadata_requires_tool_call(weight=0.15),
+            metadata_environment_state_matches(weight=0.10),
+            min_length(80, weight=0.05),
         ],
+        environment_factory=build_customer_support_environment,
+        repetitions=2,
     )
 
     baseline = RuleBasedModel(
@@ -92,6 +91,20 @@ def build_customer_support_demo() -> tuple[OptimizationLoop, dict[str, MultiAgen
         output_key="domain_notes",
     )
 
+    tool_user = Agent(
+        name="tool_user",
+        role="Use operational tools to inspect the case state.",
+        model=RuleBasedModel(
+            name="tool_user_model",
+            routes={
+                "refund": "Tool evidence: order lookup completed and refund review was recorded.",
+                "package": "Tool evidence: tracking lookup completed and shipping escalation was recorded.",
+            },
+        ),
+        output_key="tool_evidence",
+        tool_selector=customer_support_tool_selector,
+    )
+
     responder = Agent(
         name="responder",
         role="Write the final customer-facing answer.",
@@ -114,7 +127,7 @@ def build_customer_support_demo() -> tuple[OptimizationLoop, dict[str, MultiAgen
 
     multi_agent = MultiAgentModel(
         name="multi_agent_support_v1",
-        agents=[planner, domain_expert, responder],
+        agents=[planner, domain_expert, tool_user, responder],
     )
 
     return (
@@ -125,3 +138,62 @@ def build_customer_support_demo() -> tuple[OptimizationLoop, dict[str, MultiAgen
         },
         examples,
     )
+
+
+def build_customer_support_environment(example: object) -> ToolEnvironment:
+    return ToolEnvironment(
+        name="customer_support_sim",
+        tools={
+            "lookup_order": lookup_order,
+            "open_refund_review": open_refund_review,
+            "lookup_tracking": lookup_tracking,
+            "open_shipping_escalation": open_shipping_escalation,
+        },
+        initial_state={"case_id": getattr(example, "id", ""), "status": "new"},
+        cost_usd_per_call=0.0002,
+    )
+
+
+def customer_support_tool_selector(task: str, state: dict[str, str], env_state: dict[str, object]) -> list[ToolCall]:
+    task_lower = task.lower()
+    if "refund" in task_lower:
+        return [
+            ToolCall("lookup_order", {"order_id": "demo-order"}),
+            ToolCall("open_refund_review", {"reason": "customer_requested_refund"}),
+        ]
+
+    if "package" in task_lower or "late" in task_lower:
+        return [
+            ToolCall("lookup_tracking", {"tracking_id": "demo-tracking"}),
+            ToolCall("open_shipping_escalation", {"reason": "late_package"}),
+        ]
+
+    return []
+
+
+def lookup_order(args: dict[str, object], state: dict[str, object]) -> dict[str, object]:
+    return {
+        "output": "Order demo-order was purchased yesterday and is eligible for policy review.",
+        "state_delta": {"order_checked": True},
+    }
+
+
+def open_refund_review(args: dict[str, object], state: dict[str, object]) -> dict[str, object]:
+    return {
+        "output": "Refund review opened; agent must avoid guaranteed refund language.",
+        "state_delta": {"refund_review_opened": True, "status": "refund_review"},
+    }
+
+
+def lookup_tracking(args: dict[str, object], state: dict[str, object]) -> dict[str, object]:
+    return {
+        "output": "Tracking scan is stale and needs escalation.",
+        "state_delta": {"tracking_checked": True},
+    }
+
+
+def open_shipping_escalation(args: dict[str, object], state: dict[str, object]) -> dict[str, object]:
+    return {
+        "output": "Shipping escalation opened for the delayed package.",
+        "state_delta": {"shipping_escalation_opened": True, "status": "shipping_escalation"},
+    }

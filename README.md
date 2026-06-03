@@ -9,9 +9,11 @@ Domain AI Forge helps teams turn a promising LLM demo into a measurable domain A
 ```mermaid
 flowchart LR
     D["Domain Pack"] --> H["Harness"]
-    H --> M["Model Adapter"]
+    H --> E["Tool Environment"]
+    E --> M["Model Adapter"]
     M --> A["Multi-Agent Model"]
-    A --> R["Run Report"]
+    A --> T["Trajectory + State"]
+    T --> R["Run Report"]
     R --> O["Optimization Loop"]
     O --> D
 ```
@@ -42,7 +44,8 @@ Expected output:
 
 ```text
 Domain AI Forge demo
-overall_score: 0.94
+overall_score: 0.96
+pass_rate: 1.00
 best_candidate: multi_agent_support_v1
 ```
 
@@ -67,24 +70,28 @@ A model is anything that can answer a domain task: an LLM API, a local model, a 
 
 **2. Harness**
 
-A harness is the domain testbed. It contains cases, expected behaviors, rubrics, forbidden patterns, risk checks, and score aggregation.
+A harness is the domain testbed. It contains cases, expected behaviors, rubrics, forbidden patterns, risk checks, trajectory scorers, state checks, and score aggregation.
 
-**3. Multi-Agent Model**
+**3. Tool Environment**
+
+A tool environment is a deterministic simulator for domain tools and business state. It lets the harness verify what the system did, not only what it said.
+
+**4. Multi-Agent Model**
 
 A multi-agent model is a model composed from specialized agents, such as planner, domain expert, tool user, critic, and final responder.
 
-**4. Optimization Loop**
+**5. Optimization Loop**
 
-The optimizer compares model candidates against the same harness, ranks them, and makes regressions visible before production.
+The optimizer compares model candidates against the same harness, ranks them, and makes regressions, cost, latency, and reliability visible before production.
 
 ## Repository Map
 
 ```text
 domain-ai-forge/
   src/domain_ai_forge/       # Framework core
-  examples/customer_support/ # Runnable vertical AI example
+  examples/customer_support/ # Runnable domain pack + tool simulator example
   tests/                     # Regression tests
-  docs/                      # Framework and launch playbooks
+  docs/                      # Framework and domain pack documentation
   .github/                   # CI and issue templates
 ```
 
@@ -121,6 +128,13 @@ report = harness.run(
 print(report.overall_score)
 ```
 
+The bundled customer support domain pack also demonstrates trajectory-level checks:
+
+- required agents appeared in the trace
+- required tools were called
+- final environment state matched the expected case state
+- cost, latency, samples, pass rate, and failure count were reported
+
 ## Who It Is For
 
 - Founders building vertical AI products
@@ -128,18 +142,16 @@ print(report.overall_score)
 - Domain experts who want evaluation criteria to shape the AI system
 - Open-source contributors who want reusable agent and harness recipes
 
-## 100k-Star Strategy
+## Project Principles
 
-The project is designed for adoption, not only correctness:
+The project is designed around practical, measurable vertical AI workflows:
 
 - **3-minute demo:** a new user can run a full model + harness + multi-agent loop without API keys.
-- **Domain packs:** each domain can become a reusable contribution unit.
-- **Harness-first culture:** every example ships with tests and score reports.
+- **Domain packs:** each domain can become a reusable contribution unit with cases, tools, state checks, and rubrics.
+- **Harness-first culture:** every example ships with tests, trajectory checks, and score reports.
 - **Adapters, not lock-in:** the core stays dependency-free and model-provider neutral.
 - **Readable docs:** the framework explains how to think, not only how to import.
 - **Contributor ladder:** users can contribute a scorer, then a domain pack, then an agent recipe.
-
-See [docs/github_launch_playbook.md](docs/github_launch_playbook.md) for the launch plan.
 
 ## Roadmap
 
@@ -147,7 +159,10 @@ See [docs/github_launch_playbook.md](docs/github_launch_playbook.md) for the lau
 - [x] Deterministic demo adapter
 - [x] Harness scoring and candidate comparison
 - [x] Multi-agent model composition
-- [ ] Domain pack format
+- [x] JSON domain pack format
+- [x] Tool environment simulator
+- [x] Trajectory and state scorers
+- [x] Cost / latency / repeated-run reporting
 - [ ] LLM-as-judge scorer adapter
 - [ ] Retrieval and tool-use adapters
 - [ ] Report export to Markdown / JSON / HTML
@@ -156,7 +171,7 @@ See [docs/github_launch_playbook.md](docs/github_launch_playbook.md) for the lau
 
 ## Contributing
 
-This project is meant to grow through practical vertical AI examples. Start with [CONTRIBUTING.md](CONTRIBUTING.md), then open an issue with a domain, harness idea, or agent recipe.
+This project welcomes practical vertical AI examples. Start with [CONTRIBUTING.md](CONTRIBUTING.md), then open an issue with a domain, harness idea, or agent recipe.
 
 ## License
 
