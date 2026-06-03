@@ -1,0 +1,48 @@
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[project]
+name = "domain-ai-forge"
+version = "0.1.0"
+description = "A model + harness + multi-agent optimization framework for domain AI systems."
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+authors = [
+  { name = "Domain AI Forge contributors" }
+]
+keywords = [
+  "ai",
+  "agents",
+  "evaluation",
+  "harness",
+  "llm",
+  "multi-agent",
+  "optimization",
+  "vertical-ai"
+]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Developers",
+  "Intended Audience :: Science/Research",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence",
+  "Topic :: Software Development :: Testing"
+]
+dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/shaoxiangyue/domain-ai-forge"
+Documentation = "https://github.com/shaoxiangyue/domain-ai-forge/tree/main/docs"
+Issues = "https://github.com/shaoxiangyue/domain-ai-forge/issues"
+
+[project.scripts]
+domain-ai-forge = "domain_ai_forge.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/domain_ai_forge"]
